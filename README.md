@@ -91,6 +91,7 @@ Opens your actual Neovim installation in a terminal window. Your full config (`~
 - CLI - toggle modes via CLI. [docs/cli.md](docs/cli.md)
 
 Check out [full docs](docs/README.md)
+Also check out the [official website](https://vim.tonis.dev/)
 
 ## Issues
 

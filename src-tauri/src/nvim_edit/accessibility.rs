@@ -494,17 +494,29 @@ pub fn is_text_field_focused() -> bool {
     // Note: We need to get focused_element again since it was consumed by into_string
     if let Some(focused_app) = system_wide.get_attribute("AXFocusedApplication") {
         if let Some(focused_element) = focused_app.get_attribute("AXFocusedUIElement") {
+            // Check AXEditable attribute
             if let Some(editable_attr) = focused_element.get_attribute("AXEditable") {
-                // AXEditable is a boolean attribute
-                // The value is a CFBoolean - check if it's true
                 if is_cf_boolean_true(&editable_attr) {
+                    return true;
+                }
+            }
+
+            // Check AXSelectedTextRange, but only for roles that could plausibly
+            // be text inputs (e.g. AXGroup used by Chromium for address bar).
+            // Exclude AXWebArea which is the main page content area.
+            if role_str != "AXWebArea" {
+                if focused_element.get_attribute("AXSelectedTextRange").is_some() {
+                    log::debug!(
+                        "is_text_field_focused: role={} has AXSelectedTextRange, treating as text field",
+                        role_str
+                    );
                     return true;
                 }
             }
         }
     }
 
-    log::trace!("is_text_field_focused: role={} (not editable)", role_str);
+    log::debug!("is_text_field_focused: role={} (not a text field)", role_str);
     false
 }
 

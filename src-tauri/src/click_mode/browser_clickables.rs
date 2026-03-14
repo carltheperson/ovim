@@ -5,6 +5,7 @@
 //! to query clickable elements directly from the DOM.
 
 use std::process::Command;
+use std::time::Instant;
 
 /// Browser types we support for JavaScript injection
 #[derive(Debug, Clone, Copy)]
@@ -167,25 +168,81 @@ return winInfo & "|" & jsResult"#,
     )
 }
 
-/// Query clickable elements using the fast path (no System Events).
+/// Execute AppleScript in-process using NSAppleScript (avoids ~240ms osascript subprocess overhead)
+fn execute_applescript_inline(source: &str) -> Result<String, String> {
+    unsafe {
+        use objc::{class, msg_send, sel, sel_impl};
+
+        let ns_string_class = class!(NSString);
+        let c_source = std::ffi::CString::new(source).map_err(|e| format!("Invalid script: {}", e))?;
+        let source_nsstring: *mut objc::runtime::Object = msg_send![
+            ns_string_class,
+            stringWithUTF8String: c_source.as_ptr()
+        ];
+
+        if source_nsstring.is_null() {
+            return Err("Failed to create NSString".to_string());
+        }
+
+        let script_class = class!(NSAppleScript);
+        let script: *mut objc::runtime::Object = msg_send![script_class, alloc];
+        let script: *mut objc::runtime::Object = msg_send![script, initWithSource: source_nsstring];
+
+        if script.is_null() {
+            return Err("Failed to create NSAppleScript".to_string());
+        }
+
+        let mut error: *mut objc::runtime::Object = std::ptr::null_mut();
+        let result: *mut objc::runtime::Object = msg_send![script, executeAndReturnError: &mut error as *mut _];
+
+        if result.is_null() || !error.is_null() {
+            let err_msg = if !error.is_null() {
+                let desc: *mut objc::runtime::Object = msg_send![error, description];
+                if !desc.is_null() {
+                    let utf8: *const std::os::raw::c_char = msg_send![desc, UTF8String];
+                    if !utf8.is_null() {
+                        std::ffi::CStr::from_ptr(utf8).to_string_lossy().to_string()
+                    } else {
+                        "Unknown error".to_string()
+                    }
+                } else {
+                    "Unknown error".to_string()
+                }
+            } else {
+                "Script returned nil".to_string()
+            };
+            let _: () = msg_send![script, release];
+            return Err(format!("AppleScript error: {}", err_msg));
+        }
+
+        let string_value: *mut objc::runtime::Object = msg_send![result, stringValue];
+        let output = if !string_value.is_null() {
+            let utf8: *const std::os::raw::c_char = msg_send![string_value, UTF8String];
+            if !utf8.is_null() {
+                std::ffi::CStr::from_ptr(utf8).to_string_lossy().trim().to_string()
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+
+        let _: () = msg_send![script, release];
+        Ok(output)
+    }
+}
+
+/// Query clickable elements using the fast path (no System Events, no osascript subprocess).
 /// Gets window bounds from the browser's own AppleScript and elements from JS.
 pub fn get_browser_clickables_fast(browser_type: BrowserType) -> Result<Vec<WebClickable>, String> {
     log::info!("Querying web clickables (fast path) from {:?}", browser_type);
 
     let script = build_fast_chrome_script(browser_type.app_name(), GET_ALL_JS_EXPANDED);
 
-    let output = Command::new("osascript")
-        .arg("-e")
-        .arg(&script)
-        .output()
-        .map_err(|e| format!("Failed to execute AppleScript: {}", e))?;
+    let start = Instant::now();
+    let stdout = execute_applescript_inline(&script)?;
+    log::info!("[TIMING] In-process AppleScript took {}ms", start.elapsed().as_millis());
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("AppleScript failed: {}", stderr));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     log::debug!("Fast AppleScript output: {}", &stdout[..stdout.len().min(200)]);
 
     // Parse: "winLeft,winTop,winRight,winBottom|{json}"

@@ -10,6 +10,7 @@ export type WidgetType =
   | "Battery"
   | "CapsLock"
   | "KeystrokeBuffer"
+  | `Shell:${string}`
 
 export interface RgbColor {
   r: number
@@ -23,6 +24,17 @@ export interface ModeColors {
   visual: RgbColor
 }
 
+export interface ShellWidgetConfig {
+  name: string
+  script?: string
+  script_path?: string
+  interval_secs: number
+}
+
+export type RowItem =
+  | { type: "ModeChar"; size: 1 | 2 | 3 }
+  | { type: "Widget"; widget_type: WidgetType }
+
 export interface Settings {
   enabled: boolean
   indicator_position: number
@@ -34,8 +46,8 @@ export interface Settings {
   show_mode_in_menu_bar: boolean
   mode_colors: ModeColors
   indicator_font: string
-  top_widget: WidgetType
-  bottom_widget: WidgetType
+  indicator_rows: RowItem[]
+  shell_widgets: ShellWidgetConfig[]
 }
 
 export interface SelectionInfo {

@@ -5,6 +5,7 @@ import { SelectionWidget } from "./SelectionWidget"
 import { BatteryWidget } from "./BatteryWidget"
 import { CapsLockWidget } from "./CapsLockWidget"
 import { KeystrokeBufferWidget } from "./KeystrokeBufferWidget"
+import { ShellWidget } from "./ShellWidget"
 
 interface WidgetProps {
   type: WidgetType
@@ -12,6 +13,11 @@ interface WidgetProps {
 }
 
 export function Widget({ type, fontFamily }: WidgetProps) {
+  if (type.startsWith("Shell:")) {
+    const widgetName = type.slice("Shell:".length)
+    return <ShellWidget fontFamily={fontFamily} widgetName={widgetName} />
+  }
+
   switch (type) {
     case "None":
       return null

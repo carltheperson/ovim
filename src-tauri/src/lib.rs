@@ -547,6 +547,7 @@ pub fn run() {
             commands::get_selection_info,
             commands::get_battery_info,
             commands::get_caps_lock_state,
+            commands::run_shell_widget,
             commands::get_pending_keys,
             commands::get_key_display_name,
             commands::record_key,

@@ -4,9 +4,23 @@ import {
   LogicalPosition,
   availableMonitors,
 } from "@tauri-apps/api/window"
-import type { Settings } from "./types"
+import type { Settings, RowItem } from "./types"
 
 const BASE_SIZE = 40
+const WIDGET_ROW_HEIGHT = 12
+const MODE_CHAR_ROW_HEIGHT = 18
+
+function computeIndicatorHeight(rows: RowItem[], scale: number): number {
+  let totalHeight = 0
+  for (const row of rows) {
+    if (row.type === "ModeChar") {
+      totalHeight += row.size * MODE_CHAR_ROW_HEIGHT
+    } else {
+      totalHeight += WIDGET_ROW_HEIGHT
+    }
+  }
+  return Math.round(totalHeight * scale) - 2
+}
 
 export async function applyWindowSettings(settings: Settings): Promise<void> {
   const window = getCurrentWindow()
@@ -20,16 +34,11 @@ export async function applyWindowSettings(settings: Settings): Promise<void> {
     await window.show()
   }
 
-  const baseSize = Math.round(BASE_SIZE * settings.indicator_size)
+  const scale = settings.indicator_size
+  const rows: RowItem[] = settings.indicator_rows ?? [{ type: "ModeChar", size: 2 }]
 
-  // Calculate height based on active widgets
-  const widgetHeight = 12
-  const hasTopWidget = settings.top_widget !== "None"
-  const hasBottomWidget = settings.bottom_widget !== "None"
-  const widgetCount = (hasTopWidget ? 1 : 0) + (hasBottomWidget ? 1 : 0)
-
-  const width = baseSize - 4
-  const height = baseSize + widgetCount * widgetHeight - 2
+  const width = Math.round(BASE_SIZE * scale) - 4
+  const height = computeIndicatorHeight(rows, scale)
 
   const monitors = await availableMonitors()
   const monitor = monitors[0]

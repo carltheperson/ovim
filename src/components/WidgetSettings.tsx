@@ -340,7 +340,7 @@ export function WidgetSettings({ settings, onUpdate }: Props) {
 
       const isModeChar = activeIdStr === "palette-ModeChar";
       const newRow: RowItem = isModeChar
-        ? { type: "ModeChar", size: 2 }
+        ? { type: "ModeChar", size: 1 }
         : { type: "Widget", widget_type: activeIdStr.slice("palette-".length) as WidgetType };
       const newRows = [...rows];
       const insertAt = finalOverIndex ?? computeInsertIndex(getPointerY(event));

@@ -62,9 +62,10 @@ export function ShellWidget({ fontFamily, widgetName }: Props) {
         opacity: 0.9,
         fontFamily,
         whiteSpace: "nowrap",
-        paddingTop: 2,
+        paddingTop: 3,
+        paddingBottom: 3,
         overflow: "hidden",
-        textOverflow: "ellipsis",
+        textOverflow: "clip",
         maxWidth: "100%",
       }}
     >

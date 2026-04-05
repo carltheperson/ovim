@@ -209,7 +209,7 @@ export function Indicator() {
         color: "white",
         boxSizing: "border-box",
         overflow: "hidden",
-        paddingBottom: "1px",
+        padding: "4px 4px 5px 4px",
         opacity,
         cursor: isHoverable ? "pointer" : "default",
         position: "relative",

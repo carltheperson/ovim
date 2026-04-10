@@ -11,6 +11,7 @@
 </a>
   
 <div>Desktop app to create and manage groups of agents from any provider and monitor them on the web or mobile.</div>
+<div>ClawTab is another app from me and is free to use and MIT like ovim.</div>
 
 </div>
 

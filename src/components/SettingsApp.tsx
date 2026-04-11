@@ -74,6 +74,29 @@ export interface ModeColors {
   visual: RgbColor;
 }
 
+export interface ShellWidgetConfig {
+  name: string;
+  script?: string;
+  script_path?: string;
+  interval_secs: number;
+}
+
+export type WidgetType =
+  | "None"
+  | "Time"
+  | "Date"
+  | "CharacterCount"
+  | "LineCount"
+  | "CharacterAndLineCount"
+  | "Battery"
+  | "CapsLock"
+  | "KeystrokeBuffer"
+  | `Shell:${string}`;
+
+export type RowItem =
+  | { type: "ModeChar"; size: 1 | 2 | 3 }
+  | { type: "Widget"; widget_type: WidgetType };
+
 export interface Settings {
   enabled: boolean;
   vim_key: string;
@@ -90,13 +113,13 @@ export interface Settings {
   ignored_apps: string[];
   launch_at_login: boolean;
   show_in_menu_bar: boolean;
-  top_widget: string;
-  bottom_widget: string;
+  indicator_rows: RowItem[];
   electron_apps: string[];
   nvim_edit: NvimEditSettings;
   click_mode: ClickModeSettings;
   scroll_mode: ScrollModeSettings;
   auto_update_enabled: boolean;
+  shell_widgets: ShellWidgetConfig[];
 }
 
 type TabId = "general" | "indicator" | "widgets" | "ignored" | "nvim-config" | "nvim-window" | "click-mode" | "scroll-mode";

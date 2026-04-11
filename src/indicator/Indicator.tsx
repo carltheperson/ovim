@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { Widget } from "./widgets"
 import { applyWindowSettings } from "./windowPosition"
-import type { VimMode, Settings, ModeColors } from "./types"
+import type { VimMode, Settings, ModeColors, RowItem } from "./types"
 
 interface PendingUpdate {
   version: string
@@ -167,19 +167,11 @@ export function Indicator() {
   const bgColor = `rgb(${color.r}, ${color.g}, ${color.b})`
 
   const fontFamily = settings?.indicator_font ?? "system-ui, -apple-system, sans-serif"
-  const topWidget = settings?.top_widget ?? "None"
-  const bottomWidget = settings?.bottom_widget ?? "None"
+  const rows: RowItem[] = settings?.indicator_rows ?? [{ type: "ModeChar", size: 2 }]
 
-  const hasTop = topWidget !== "None"
-  const hasBottom = bottomWidget !== "None"
-  let gridTemplateRows = "1fr"
-  if (hasTop && hasBottom) {
-    gridTemplateRows = "auto 1fr auto"
-  } else if (hasTop) {
-    gridTemplateRows = "auto 1fr"
-  } else if (hasBottom) {
-    gridTemplateRows = "1fr auto"
-  }
+  const gridTemplateRows = rows
+    .map((row) => (row.type === "ModeChar" ? `${row.size}fr` : "auto"))
+    .join(" ")
 
   const handleOpenSettings = useCallback(async () => {
     try {
@@ -217,7 +209,7 @@ export function Indicator() {
         color: "white",
         boxSizing: "border-box",
         overflow: "hidden",
-        paddingBottom: "1px",
+        padding: "4px 4px 5px 4px",
         opacity,
         cursor: isHoverable ? "pointer" : "default",
         position: "relative",
@@ -293,29 +285,34 @@ export function Indicator() {
           </div>
         </div>
       )}
-      {hasTop && <Widget type={topWidget} fontFamily={fontFamily} />}
-      <div
-        style={{
-          display: "grid",
-          placeItems: "center",
-          width: "100%",
-          height: "100%",
-        }}
-      >
-        <span
-          style={{
-            fontSize: "36px",
-            fontWeight: "bold",
-            textTransform: "uppercase",
-            lineHeight: "0.75em",
-            display: "block",
-            transform: "translateY(1px)",
-          }}
-        >
-          {modeChar}
-        </span>
-      </div>
-      {hasBottom && <Widget type={bottomWidget} fontFamily={fontFamily} />}
+      {rows.map((row, i) =>
+        row.type === "ModeChar" ? (
+          <div
+            key={`mode-${i}`}
+            style={{
+              display: "grid",
+              placeItems: "center",
+              width: "100%",
+              height: "100%",
+            }}
+          >
+            <span
+              style={{
+                fontSize: `${row.size * 18}px`,
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                lineHeight: "0.75em",
+                display: "block",
+                transform: "translateY(1px)",
+              }}
+            >
+              {modeChar}
+            </span>
+          </div>
+        ) : (
+          <Widget key={`widget-${i}`} type={row.widget_type} fontFamily={fontFamily} />
+        ),
+      )}
 
       {/* Hide button - top right, visible on hover */}
       {showOverlay && isHoverable && (

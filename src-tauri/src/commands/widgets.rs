@@ -1,6 +1,6 @@
 //! Widget info Tauri commands
 
-use crate::widgets::{battery, capslock, selection};
+use crate::widgets::{battery, capslock, selection, shell};
 
 #[tauri::command]
 pub fn get_selection_info() -> selection::SelectionInfo {
@@ -15,6 +15,15 @@ pub fn get_battery_info() -> Option<battery::BatteryInfo> {
 #[tauri::command]
 pub fn get_caps_lock_state() -> bool {
     capslock::is_caps_lock_on()
+}
+
+#[tauri::command]
+pub async fn run_shell_widget(script: Option<String>, script_path: Option<String>) -> String {
+    tokio::task::spawn_blocking(move || {
+        shell::run_shell_script(script.as_deref(), script_path.as_deref())
+    })
+    .await
+    .unwrap_or_else(|e| format!("err: {}", e))
 }
 
 /// Log message from webview to /tmp/ovim-webview.log

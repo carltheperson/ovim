@@ -114,6 +114,12 @@ Check out [full docs](docs/README.md) and the [official website](https://vim.ton
 
 Please check logs at `/tmp/ovim-rust.log` and submit an [issue](https://github.com/tonisives/ovim/issues)
 
+## Also by the author
+
+[**ClawTab**](https://clawtab.cc) - Schedule and manage Claude Code agents, shell scripts, and AI jobs from your macOS menu bar. Control everything remotely from your phone.
+
+[![ClawTab](https://clawtab.cc/assets/job-list.png)](https://clawtab.cc)
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.

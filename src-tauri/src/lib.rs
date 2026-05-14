@@ -1,6 +1,7 @@
 // Allow unexpected_cfgs from the objc crate's macros which use cfg(feature = "cargo-clippy")
 #![allow(unexpected_cfgs)]
 
+mod abbreviations;
 mod click_mode;
 mod commands;
 mod config;
@@ -25,6 +26,7 @@ use tauri::{
     AppHandle, Emitter, Listener, Manager, State,
 };
 
+use abbreviations::SharedAbbreviationState;
 use click_mode::SharedClickModeManager;
 use commands::RecordedKey;
 use config::click_mode::DoubleTapModifier;
@@ -95,6 +97,8 @@ pub struct AppState {
     pub click_mode_manager: SharedClickModeManager,
     #[allow(dead_code)]
     pub scroll_state: SharedScrollModeState,
+    #[allow(dead_code)]
+    pub abbreviation_state: SharedAbbreviationState,
 }
 
 fn handle_ipc_command(
@@ -455,6 +459,7 @@ pub fn run() {
     let double_tap_manager = Arc::new(Mutex::new(DoubleTapManager::new()));
     let scroll_state = scroll_mode::create_scroll_state();
     let list_state = list_mode::create_list_state();
+    let abbreviation_state = abbreviations::create_abbreviation_state();
 
     // Create double-tap callback that handles mode activation
     let double_tap_callback = {
@@ -483,6 +488,7 @@ pub fn run() {
         double_tap_callback,
         Arc::clone(&scroll_state),
         Arc::clone(&list_state),
+        Arc::clone(&abbreviation_state),
     ));
 
     // Set up mouse click callback to hide click mode on any mouse click
@@ -562,9 +568,11 @@ pub fn run() {
         edit_session_manager,
         click_mode_manager,
         scroll_state,
+        abbreviation_state,
     };
 
     let mode_rx = Arc::new(Mutex::new(mode_rx));
+    let abbreviation_state_for_mode = Arc::clone(&app_state.abbreviation_state);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -751,6 +759,9 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 while let Ok(mode) = rx.recv().await {
                     log::info!("Mode changed to: {:?}", mode);
+                    if mode != VimMode::Insert {
+                        abbreviation_state_for_mode.lock().map(|mut state| state.reset()).ok();
+                    }
                     let _ = app_handle.emit("mode-change", mode.as_str());
                 }
             });

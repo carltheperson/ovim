@@ -274,8 +274,11 @@ pub fn process_vim_input(
             log::debug!("PassThrough: keycode={}", event.code);
             Some(event)
         }
-        ProcessResult::ModeChanged(_mode, action) => {
+        ProcessResult::ModeChanged(mode, action) => {
             log::debug!("ModeChanged: keycode={}", event.code);
+            if mode == VimMode::Insert {
+                vim_eligibility::recompute_if_needed(FocusCheckReason::InsertModeEntry);
+            }
             if let Some(action) = action {
                 execute_action_async(action);
             }

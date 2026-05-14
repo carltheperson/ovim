@@ -9,6 +9,7 @@ mod shortcuts;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use crate::abbreviations::SharedAbbreviationState;
 use crate::click_mode::SharedClickModeManager;
 use crate::commands::RecordedKey;
 use crate::config::click_mode::DoubleTapModifier;
@@ -49,6 +50,7 @@ pub fn create_keyboard_callback(
     double_tap_callback: DoubleTapCallback,
     scroll_state: SharedScrollModeState,
     list_state: SharedListModeState,
+    abbreviation_state: SharedAbbreviationState,
 ) -> impl Fn(KeyEvent) -> Option<KeyEvent> + Send + 'static {
     let jk_normal_mode_state = Arc::new(Mutex::new(JkNormalModeState::default()));
 
@@ -259,8 +261,7 @@ pub fn create_keyboard_callback(
                             if result.is_none() {
                                 return None;
                             }
-                            // Otherwise continue to vim processing
-                            return result;
+                            // Otherwise continue to vim/abbreviation processing below.
                         }
                     }
                 }
@@ -268,7 +269,30 @@ pub fn create_keyboard_callback(
         }
 
         // Process normal vim input
-        process_vim_input(event, &settings, &vim_state)
+        let result = process_vim_input(event, &settings, &vim_state);
+        if result.is_some() {
+            handle_insert_mode_abbreviations(
+                &event,
+                Arc::clone(&settings),
+                Arc::clone(&vim_state),
+                Arc::clone(&abbreviation_state),
+            );
+        }
+        result
+    }
+}
+
+fn handle_insert_mode_abbreviations(
+    event: &KeyEvent,
+    settings: Arc<Mutex<Settings>>,
+    vim_state: Arc<Mutex<VimState>>,
+    abbreviation_state: SharedAbbreviationState,
+) {
+    let should_process = settings.lock().map(|settings| settings.enabled).unwrap_or(false)
+        && vim_state.lock().map(|state| state.mode()).unwrap_or(VimMode::Insert) == VimMode::Insert;
+
+    if should_process {
+        abbreviation_state.lock().map(|mut state| state.process_key(event)).ok();
     }
 }
 

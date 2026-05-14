@@ -364,6 +364,53 @@ pub fn type_char(keycode: KeyCode, shift: bool) -> Result<(), String> {
     inject_key_press(keycode, mods)
 }
 
+/// Type plain ASCII text using the same keyboard injection path as vim commands.
+pub fn type_text(text: &str) -> Result<(), String> {
+    for char in text.chars() {
+        let Some((keycode, shift)) = char_to_key_press(char) else {
+            return Err(format!("Unsupported character for typing: {char:?}"));
+        };
+        type_char(keycode, shift)?;
+    }
+    Ok(())
+}
+
+fn char_to_key_press(char: char) -> Option<(KeyCode, bool)> {
+    let lower = char.to_ascii_lowercase();
+    let shift = char.is_ascii_uppercase();
+    match lower {
+        'a' => Some((KeyCode::A, shift)),
+        'b' => Some((KeyCode::B, shift)),
+        'c' => Some((KeyCode::C, shift)),
+        'd' => Some((KeyCode::D, shift)),
+        'e' => Some((KeyCode::E, shift)),
+        'f' => Some((KeyCode::F, shift)),
+        'g' => Some((KeyCode::G, shift)),
+        'h' => Some((KeyCode::H, shift)),
+        'i' => Some((KeyCode::I, shift)),
+        'j' => Some((KeyCode::J, shift)),
+        'k' => Some((KeyCode::K, shift)),
+        'l' => Some((KeyCode::L, shift)),
+        'm' => Some((KeyCode::M, shift)),
+        'n' => Some((KeyCode::N, shift)),
+        'o' => Some((KeyCode::O, shift)),
+        'p' => Some((KeyCode::P, shift)),
+        'q' => Some((KeyCode::Q, shift)),
+        'r' => Some((KeyCode::R, shift)),
+        's' => Some((KeyCode::S, shift)),
+        't' => Some((KeyCode::T, shift)),
+        'u' => Some((KeyCode::U, shift)),
+        'v' => Some((KeyCode::V, shift)),
+        'w' => Some((KeyCode::W, shift)),
+        'x' => Some((KeyCode::X, shift)),
+        'y' => Some((KeyCode::Y, shift)),
+        'z' => Some((KeyCode::Z, shift)),
+        ' ' => Some((KeyCode::Space, false)),
+        '\'' => Some((KeyCode::Quote, false)),
+        _ => None,
+    }
+}
+
 // ============================================================================
 // Scroll Mode Functions (Vimium-style navigation)
 // ============================================================================

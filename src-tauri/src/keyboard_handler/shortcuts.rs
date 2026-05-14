@@ -11,6 +11,7 @@ use crate::config::Settings;
 use crate::get_app_handle;
 use crate::keyboard::{KeyCode, KeyEvent};
 use crate::nvim_edit::{self, EditSessionManager};
+use crate::nvim_edit::vim_eligibility::{self, FocusCheckReason};
 use crate::vim::{ProcessResult, VimAction, VimMode, VimState};
 
 #[cfg(target_os = "macos")]
@@ -206,6 +207,13 @@ pub fn check_vim_key(
         return Some(Some(event.clone()));
     }
 
+    if current_mode == VimMode::Insert {
+        if !vim_eligibility::allows_vim_at_decision_point(FocusCheckReason::PreNormalModeCheck) {
+            log::debug!("Vim key: eligibility blocked normal-mode activation");
+            return Some(Some(event.clone()));
+        }
+    }
+
     let result = {
         let mut state = vim_state.lock().unwrap();
         state.handle_vim_key()
@@ -237,6 +245,13 @@ pub fn process_vim_input(
         }
     }
 
+    let current_mode = vim_state.lock().unwrap().mode();
+    if current_mode != VimMode::Insert
+        && !vim_eligibility::allows_vim_at_decision_point(FocusCheckReason::PreKeyInterceptCheck)
+    {
+        return Some(event);
+    }
+
     let result = {
         let mut state = vim_state.lock().unwrap();
         state.process_key(event)
@@ -253,6 +268,9 @@ pub fn process_vim_input(
             None
         }
         ProcessResult::PassThrough => {
+            if vim_eligibility::should_log_pass_through_key() {
+                vim_eligibility::recompute_if_needed(FocusCheckReason::PassThroughKey);
+            }
             log::debug!("PassThrough: keycode={}", event.code);
             Some(event)
         }

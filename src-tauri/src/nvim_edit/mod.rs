@@ -9,6 +9,7 @@ mod rpc;
 mod session;
 pub mod terminals;
 mod text_capture;
+pub mod vim_eligibility;
 
 pub use session::EditSessionManager;
 

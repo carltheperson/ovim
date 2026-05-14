@@ -27,6 +27,7 @@ pub fn set_settings(
         new_settings.click_mode.max_depth,
         new_settings.click_mode.max_elements,
     );
+    crate::nvim_edit::vim_eligibility::update_from_settings(&new_settings.vim_eligibility);
 
     let mut settings = state.settings.lock().unwrap();
     *settings = new_settings.clone();

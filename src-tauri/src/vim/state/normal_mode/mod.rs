@@ -25,6 +25,10 @@ impl VimState {
             return ProcessResult::ModeChanged(VimMode::Insert, None);
         }
 
+        if modifiers.option {
+            return ProcessResult::PassThrough;
+        }
+
         // Handle pending r (replace char)
         if self.pending_r {
             self.pending_r = false;
@@ -172,7 +176,16 @@ impl VimState {
             // Visual mode
             KeyCode::V => {
                 self.set_mode(VimMode::Visual);
-                ProcessResult::ModeChanged(VimMode::Visual, None)
+                let action = if modifiers.shift {
+                    Some(VimAction::Command {
+                        command: VimCommand::SelectLine,
+                        count: 1,
+                        select: false,
+                    })
+                } else {
+                    None
+                };
+                ProcessResult::ModeChanged(VimMode::Visual, action)
             }
 
             // Clipboard

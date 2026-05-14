@@ -7,6 +7,7 @@ mod scroll_mode;
 mod shortcuts;
 
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use crate::click_mode::SharedClickModeManager;
 use crate::commands::RecordedKey;
@@ -30,6 +31,13 @@ use shortcuts::{
 /// Callback type for when a double-tap triggers a mode activation
 pub type DoubleTapCallback = Box<dyn Fn(DoubleTapKey) + Send + 'static>;
 
+const JK_NORMAL_MODE_WINDOW: Duration = Duration::from_millis(100);
+
+#[derive(Default)]
+struct JkNormalModeState {
+    last_j_down: Option<Instant>,
+}
+
 /// Create the keyboard callback that processes key events
 pub fn create_keyboard_callback(
     vim_state: Arc<Mutex<VimState>>,
@@ -42,6 +50,8 @@ pub fn create_keyboard_callback(
     scroll_state: SharedScrollModeState,
     list_state: SharedListModeState,
 ) -> impl Fn(KeyEvent) -> Option<KeyEvent> + Send + 'static {
+    let jk_normal_mode_state = Arc::new(Mutex::new(JkNormalModeState::default()));
+
     move |event| {
         // Reset modifier double-tap trackers when any non-modifier key is pressed.
         // This prevents false double-tap detection when using shortcuts like CMD+C
@@ -73,6 +83,9 @@ pub fn create_keyboard_callback(
                     drop(settings_guard);
 
                     if click_uses_escape || nvim_uses_escape {
+                                crate::nvim_edit::vim_eligibility::allows_vim_at_decision_point(
+                                    crate::nvim_edit::vim_eligibility::FocusCheckReason::PreNormalModeCheck,
+                                );
                         double_tap_callback(double_tap_key);
                         return None; // Suppress the escape key
                     }
@@ -97,6 +110,15 @@ pub fn create_keyboard_callback(
                     return None;
                 }
             }
+        }
+
+        if let Some(result) = handle_jk_normal_mode_chord(
+            &event,
+            Arc::clone(&vim_state),
+            Arc::clone(&settings),
+            Arc::clone(&jk_normal_mode_state),
+        ) {
+            return result;
         }
 
         // Check shortcuts on key down
@@ -248,6 +270,85 @@ pub fn create_keyboard_callback(
         // Process normal vim input
         process_vim_input(event, &settings, &vim_state)
     }
+}
+
+fn handle_jk_normal_mode_chord(
+    event: &KeyEvent,
+    vim_state: Arc<Mutex<VimState>>,
+    settings: Arc<Mutex<Settings>>,
+    jk_state: Arc<Mutex<JkNormalModeState>>,
+) -> Option<Option<KeyEvent>> {
+    if !event.is_key_down || has_modifiers(event) {
+        return None;
+    }
+
+    if !settings.lock().map(|settings| settings.enabled).unwrap_or(false) {
+        return None;
+    }
+
+    if vim_state.lock().map(|state| state.mode()).unwrap_or(VimMode::Insert) != VimMode::Insert {
+        jk_state.lock().map(|mut state| state.last_j_down = None).ok();
+        return None;
+    }
+
+    match event.keycode()? {
+        KeyCode::J => {
+            jk_state.lock().map(|mut state| state.last_j_down = Some(Instant::now())).ok();
+            None
+        }
+        KeyCode::K => {
+            let saw_recent_j = jk_state
+                .lock()
+                .map(|mut state| {
+                    let saw_recent_j = state
+                        .last_j_down
+                        .is_some_and(|timestamp| timestamp.elapsed() <= JK_NORMAL_MODE_WINDOW);
+                    state.last_j_down = None;
+                    saw_recent_j
+                })
+                .unwrap_or(false);
+
+            if !saw_recent_j {
+                return None;
+            }
+
+            if !crate::nvim_edit::vim_eligibility::allows_vim_at_decision_point(
+                crate::nvim_edit::vim_eligibility::FocusCheckReason::PreNormalModeCheck,
+            ) {
+                return None;
+            }
+
+            // The `j` key has already reached the focused text field. Remove it
+            // before entering simulated normal mode so `jk` behaves like a chord.
+            if let Err(e) = crate::keyboard::inject_key_press(
+                KeyCode::Delete,
+                crate::keyboard::Modifiers::default(),
+            ) {
+                log::warn!("Failed to delete jk chord prefix before normal mode: {}", e);
+            }
+
+            {
+                let mut state = vim_state.lock().unwrap();
+                state.set_mode_external(VimMode::Normal);
+            }
+            if let Some(app) = crate::get_app_handle() {
+                use tauri::Emitter;
+                let _ = app.emit("mode-change", "normal");
+            }
+
+            Some(None)
+        }
+        _ => {
+            jk_state.lock().map(|mut state| state.last_j_down = None).ok();
+            None
+        }
+    }
+}
+
+fn has_modifiers(event: &KeyEvent) -> bool {
+    event.modifiers.shift
+        || event.modifiers.control
+        || event.modifiers.command
 }
 
 /// Get the bundle identifier of the frontmost application

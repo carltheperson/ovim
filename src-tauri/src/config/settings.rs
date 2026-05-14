@@ -108,6 +108,9 @@ pub struct Settings {
     pub bottom_widget: String,
     /// Bundle identifiers of Electron apps for selection observing
     pub electron_apps: Vec<String>,
+    /// Experimental AX-based Vim eligibility logging and optional enforcement
+    #[serde(default)]
+    pub vim_eligibility: VimEligibilitySettings,
     /// Settings for Edit Popup feature
     pub nvim_edit: NvimEditSettings,
     /// Settings for Click Mode feature
@@ -162,11 +165,34 @@ impl Default for Settings {
             top_widget: "None".to_string(),
             bottom_widget: "None".to_string(),
             electron_apps: vec![],
+            vim_eligibility: VimEligibilitySettings::default(),
             nvim_edit: NvimEditSettings::default(),
             click_mode: ClickModeSettings::default(),
             scroll_mode: ScrollModeSettings::default(),
             auto_update_enabled: true,
             shell_widgets: vec![],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct VimEligibilitySettings {
+    /// Log Cursor/VSCodium-style Vim eligibility transitions with normal ovim logging.
+    pub log_transitions: bool,
+    /// Legacy setting kept for config compatibility. This fork always enforces
+    /// the hardcoded Kitty/Cursor/other-app policy in vim_eligibility.
+    pub enforce: bool,
+    /// Dump full AX ancestry in normal logs. Also enabled by OVIM_VERBOSE_AX_FOCUS=1.
+    pub verbose_ax_focus: bool,
+}
+
+impl Default for VimEligibilitySettings {
+    fn default() -> Self {
+        Self {
+            log_transitions: true,
+            enforce: false,
+            verbose_ax_focus: false,
         }
     }
 }

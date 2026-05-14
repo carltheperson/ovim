@@ -108,6 +108,13 @@ fn handle_ipc_command(
     match cmd {
         IpcCommand::GetMode => IpcResponse::Mode(state.mode().as_str().to_string()),
         IpcCommand::Toggle => {
+            if state.mode() == VimMode::Insert {
+                if !nvim_edit::vim_eligibility::allows_vim_at_decision_point(
+                    nvim_edit::vim_eligibility::FocusCheckReason::PreNormalModeCheck,
+                ) {
+                    return IpcResponse::Ok;
+                }
+            }
             let new_mode = state.toggle_mode();
             let _ = app_handle.emit("mode-change", new_mode.as_str());
             IpcResponse::Mode(new_mode.as_str().to_string())
@@ -118,11 +125,21 @@ fn handle_ipc_command(
             IpcResponse::Ok
         }
         IpcCommand::Normal => {
+            if !nvim_edit::vim_eligibility::allows_vim_at_decision_point(
+                nvim_edit::vim_eligibility::FocusCheckReason::PreNormalModeCheck,
+            ) {
+                return IpcResponse::Ok;
+            }
             state.set_mode_external(VimMode::Normal);
             let _ = app_handle.emit("mode-change", "normal");
             IpcResponse::Ok
         }
         IpcCommand::Visual => {
+            if !nvim_edit::vim_eligibility::allows_vim_at_decision_point(
+                nvim_edit::vim_eligibility::FocusCheckReason::PreNormalModeCheck,
+            ) {
+                return IpcResponse::Ok;
+            }
             state.set_mode_external(VimMode::Visual);
             let _ = app_handle.emit("mode-change", "visual");
             IpcResponse::Ok
@@ -228,11 +245,21 @@ fn handle_set_mode(state: &mut VimState, app_handle: &AppHandle, mode_str: &str)
             IpcResponse::Ok
         }
         "normal" | "n" => {
+            if !nvim_edit::vim_eligibility::allows_vim_at_decision_point(
+                nvim_edit::vim_eligibility::FocusCheckReason::PreNormalModeCheck,
+            ) {
+                return IpcResponse::Ok;
+            }
             state.set_mode_external(VimMode::Normal);
             let _ = app_handle.emit("mode-change", "normal");
             IpcResponse::Ok
         }
         "visual" | "v" => {
+            if !nvim_edit::vim_eligibility::allows_vim_at_decision_point(
+                nvim_edit::vim_eligibility::FocusCheckReason::PreNormalModeCheck,
+            ) {
+                return IpcResponse::Ok;
+            }
             state.set_mode_external(VimMode::Visual);
             let _ = app_handle.emit("mode-change", "visual");
             IpcResponse::Ok
@@ -363,6 +390,19 @@ fn update_tray_icon(tray: &TrayIcon, mode: &str, show_mode: bool) {
     }
 }
 
+fn update_tray_status_title(tray: &TrayIcon, mode: VimMode) {
+    let mode_label = match mode {
+        VimMode::Insert => "I",
+        VimMode::Normal => "N",
+        VimMode::Visual => "V",
+    };
+    let eligibility_label = nvim_edit::vim_eligibility::current_eligibility_label();
+    let title = format!("{}[{}]", eligibility_label, mode_label);
+    if let Err(e) = tray.set_title(Some(title)) {
+        log::error!("Failed to update tray status title: {}", e);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     init_file_logger();
@@ -388,6 +428,7 @@ pub fn run() {
             s.click_mode.max_depth,
             s.click_mode.max_elements,
         );
+        nvim_edit::vim_eligibility::init(&s.vim_eligibility);
     }
 
     let record_key_tx: Arc<Mutex<Option<tokio::sync::oneshot::Sender<RecordedKey>>>> =
@@ -626,6 +667,11 @@ pub fn run() {
                 if let Err(e) = tray.set_visible(initial_settings.show_in_menu_bar) {
                     log::error!("Failed to set initial tray visibility: {}", e);
                 }
+                {
+                    let state: State<AppState> = app.state();
+                    let mode = state.vim_state.lock().map(|state| state.mode()).unwrap_or(VimMode::Insert);
+                    update_tray_status_title(&tray, mode);
+                }
 
                 let tray_clone = tray.clone();
                 let show_indicator_item_clone = show_indicator_item.clone();
@@ -649,6 +695,18 @@ pub fn run() {
                     let state: State<AppState> = app_handle_for_tray.state();
                     let show_mode = state.settings.lock().map(|s| s.show_mode_in_menu_bar).unwrap_or(false);
                     update_tray_icon(&tray_for_mode, mode, show_mode);
+                    let vim_mode = state.vim_state.lock().map(|state| state.mode()).unwrap_or(VimMode::Insert);
+                    update_tray_status_title(&tray_for_mode, vim_mode);
+                });
+
+                // Listen for eligibility changes to update the compact status text:
+                // A[N] = allowed and normal mode, _[I] = not allowed and insert mode.
+                let tray_for_eligibility = tray.clone();
+                let app_handle_for_eligibility = app.handle().clone();
+                app.listen("vim-eligibility-change", move |_event| {
+                    let state: State<AppState> = app_handle_for_eligibility.state();
+                    let mode = state.vim_state.lock().map(|state| state.mode()).unwrap_or(VimMode::Insert);
+                    update_tray_status_title(&tray_for_eligibility, mode);
                 });
             }
 

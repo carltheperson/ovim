@@ -18,6 +18,7 @@ pub enum VimCommand {
     // Line motions
     LineStart,
     LineEnd,
+    SelectLine,
 
     // Paragraph motions
     ParagraphUp,   // {
@@ -87,6 +88,10 @@ impl VimCommand {
             // Line motions
             Self::LineStart => keyboard::line_start(select),
             Self::LineEnd => keyboard::line_end(select),
+            Self::SelectLine => {
+                keyboard::line_start(false)?;
+                keyboard::line_end(true)
+            }
 
             // Paragraph motions
             Self::ParagraphUp => keyboard::paragraph_up(count, select),
@@ -127,9 +132,19 @@ impl VimCommand {
                 Ok(())
             }
             Self::DeleteLine => {
-                keyboard::line_start(false)?;
-                keyboard::line_end(true)?;
-                keyboard::cut()
+                if count == 1 {
+                        keyboard::line_start(false)?;
+                        keyboard::line_end(true)?;
+                        keyboard::backspace()?;
+                } else {
+                    for _ in 0..count {
+                        keyboard::line_start(false)?;
+                        keyboard::line_end(true)?;
+                        keyboard::cut()?;
+                        keyboard::delete_char()?;
+                    }
+                }
+                Ok(())
             }
             Self::DeleteToLineEnd => {
                 keyboard::line_end(true)?;

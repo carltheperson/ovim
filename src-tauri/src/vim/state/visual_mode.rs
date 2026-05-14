@@ -19,6 +19,10 @@ impl VimState {
             return ProcessResult::ModeChanged(VimMode::Normal, None);
         }
 
+        if modifiers.option {
+            return ProcessResult::PassThrough;
+        }
+
         // Handle pending g
         if self.pending_g {
             self.pending_g = false;

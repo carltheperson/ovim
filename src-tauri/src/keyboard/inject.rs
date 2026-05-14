@@ -260,16 +260,28 @@ pub fn redo() -> Result<(), String> {
     )
 }
 
-/// New line below (o) - Cmd+Right, Return
+/// New line below (o) - Cmd+Right, Shift+Return
 pub fn new_line_below() -> Result<(), String> {
     line_end(false)?;
-    inject_key_press(KeyCode::Return, Modifiers::default())
+    inject_key_press(
+        KeyCode::Return,
+        Modifiers {
+            shift: true,
+            ..Default::default()
+        },
+    )
 }
 
-/// New line above (O) - Cmd+Left, Return, Up
+/// New line above (O) - Cmd+Left, Shift+Return, Up
 pub fn new_line_above() -> Result<(), String> {
     line_start(false)?;
-    inject_key_press(KeyCode::Return, Modifiers::default())?;
+    inject_key_press(
+        KeyCode::Return,
+        Modifiers {
+            shift: true,
+            ..Default::default()
+        },
+    )?;
     cursor_up(1, false)
 }
 

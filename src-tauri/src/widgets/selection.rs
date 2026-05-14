@@ -20,6 +20,10 @@ extern "C" {
 
 /// Get selection info from the focused application using Accessibility APIs
 pub fn get_selection_info() -> SelectionInfo {
+    crate::nvim_edit::vim_eligibility::recompute_if_needed(
+        crate::nvim_edit::vim_eligibility::FocusCheckReason::SelectionUpdate,
+    );
+
     match get_selected_text() {
         Some(text) if !text.is_empty() => {
             let char_count = text.chars().count();

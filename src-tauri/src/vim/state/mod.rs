@@ -179,6 +179,10 @@ impl VimState {
             None => return ProcessResult::PassThrough,
         };
 
+        if event.modifiers.option {
+            return ProcessResult::PassThrough;
+        }
+
         // Check if this is a key we would handle (suppress its key up too)
         let should_suppress = matches!(
             keycode,

@@ -5,4 +5,4 @@ mod scroll_mode;
 mod settings;
 
 pub use nvim_edit::NvimEditSettings;
-pub use settings::{Settings, VimKeyModifiers};
+pub use settings::{Settings, VimEligibilitySettings, VimKeyModifiers};
